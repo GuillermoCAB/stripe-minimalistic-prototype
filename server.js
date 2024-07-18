@@ -2,27 +2,41 @@ const express = require('express');
 const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
 const path = require('path');
-const stripe = require('stripe')
+const stripe = require('stripe');
+const session = require('express-session');
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3000;
 const secretKey = process.env.NODE_APP_STRIPE_SECRET_KEY;
-const publishableKey = process.env.NODE_APP_STRIPE_PUBLISHABLE_KEY
+const publishableKey = process.env.NODE_APP_STRIPE_PUBLISHABLE_KEY;
 
-const stripeInstance = stripe(secretKey)
-console.log(secretKey);
-console.log(publishableKey);
+const stripeInstance = stripe(secretKey);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.static('public'));
+app.use(session({
+    secret: secretKey,
+    resave: false,
+    saveUninitialized: true,
+}));
 
-// Route to serve the index.html with the publishable key injected
 app.get('/', (req, res) => {
-    res.render('index', { publishableKey });
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.post('/store-address-data', (req, res) => {
+    req.session.formData = {
+        ...req.session.formData,
+        addressElementData: req.body.addressElementData,
+    };
+    res.sendStatus(200);
+});
+
+app.get('/success', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'success.html'));
 });
 
 app.post('/create-payment-intent', async (req, res) => {
@@ -40,4 +54,12 @@ app.post('/create-payment-intent', async (req, res) => {
     }
 });
 
-app.listen(3000, () => console.log('Server running on port 3000'));
+app.post('/store-address-data', (req, res) => {
+    req.session.formData = {
+        ...req.session.formData,
+        addressElementData: req.body.addressElementData,
+    };
+    res.sendStatus(200);
+});
+
+app.listen(port, () => console.log(`Server running on port ${port}`));

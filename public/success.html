@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Success</title>
+</head>
+<body>
+    <h1>Payment Successful</h1>
+    <div id="payment-details">
+        <h3>Payment Details</h3>
+        <p id="payment-intent-id"></p>
+        <p id="payment-intent-status"></p>
+        <h3>Address Details</h3>
+        <p id="address-element-data"></p>
+    </div>
+    <script>
+        // Function to get a cookie value
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        // Function to format address data
+        function formatAddress(address) {
+            if (!address) return 'N/A';
+            return `
+                Name: ${address.name || 'N/A'}<br>
+                Address Line 1: ${address.address.line1 || 'N/A'}<br>
+                Address Line 2: ${address.address.line2 || 'N/A'}<br>
+                City: ${address.address.city || 'N/A'}<br>
+                State: ${address.address.state || 'N/A'}<br>
+                Country: ${address.address.country || 'N/A'}<br>
+                Postal Code: ${address.address.postal_code || 'N/A'}
+            `;
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentIntentId = urlParams.get('payment_intent');
+        const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
+        const redirectStatus = urlParams.get('redirect_status');
+        const addressData = getCookie('addressData');
+
+        document.getElementById('payment-intent-id').innerText = `Payment Intent ID: ${paymentIntentId}`;
+        document.getElementById('payment-intent-status').innerText = `Status: ${redirectStatus}`;
+        
+        // Parse and format the address data
+        try {
+            const addressObject = JSON.parse(decodeURIComponent(addressData));
+            document.getElementById('address-element-data').innerHTML = formatAddress(addressObject);
+        } catch (e) {
+            console.error('Failed to parse address data:', e);
+            document.getElementById('address-element-data').innerText = 'Error parsing address data';
+        }
+    </script>
+</body>
+</html>

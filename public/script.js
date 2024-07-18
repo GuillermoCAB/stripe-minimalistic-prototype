@@ -1,10 +1,10 @@
 // Initialize Stripe and Elements
-const publishableKey = 'pk_test_51PdfJeCXxlVIqo4hm7ZyfaR4DOQpjvBKWonLDH4Uak5s0AcuMbk55p3wZjCaBOtdzaxJ9gBySx0m3ifVcQquDHIo00iXsWdZoG'
+const publishableKey = 'pk_test_51PdfJeCXxlVIqo4hm7ZyfaR4DOQpjvBKWonLDH4Uak5s0AcuMbk55p3wZjCaBOtdzaxJ9gBySx0m3ifVcQquDHIo00iXsWdZoG';
 const stripe = Stripe(publishableKey); // Replace with your Stripe publishable key
 const elements = stripe.elements();
 
-// Fetch the client secret from the server
 async function initializePaymentElement() {
+    let addressJSON = {}
     const { clientSecret } = await fetch('/create-payment-intent', {
         method: 'POST',
         headers: {
@@ -14,20 +14,15 @@ async function initializePaymentElement() {
     }).then(res => res.json());
 
     // Initialize elements with the client secret
-    const elements = stripe.elements({ clientSecret });
-
-    console.log("Stripe initialized:", stripe);
-    console.log("Elements initialized:", elements);
+    const stripeElements = stripe.elements({ clientSecret });
 
     // Create and mount the Payment Element
-    const paymentElement = elements.create('payment');
+    const paymentElement = stripeElements.create('payment');
     paymentElement.mount('#payment-element');
-    console.log("Payment Element mounted");
 
     // Create and mount the Address Element with mode set to 'shipping' or 'billing'
-    const addressElement = elements.create('address', { mode: 'shipping' }); // or { mode: 'billing' }
+    const addressElement = stripeElements.create('address', { mode: 'shipping' });
     addressElement.mount('#address-element');
-    console.log("Address Element mounted");
 
     // Create and mount the Payment Request Button
     const paymentRequest = stripe.paymentRequest({
@@ -39,27 +34,42 @@ async function initializePaymentElement() {
         },
     });
 
-    const prButton = elements.create('paymentRequestButton', {
+    const prButton = stripeElements.create('paymentRequestButton', {
         paymentRequest,
     });
 
     paymentRequest.canMakePayment().then((result) => {
         if (result) {
             prButton.mount('#payment-request-button');
-            console.log("Payment Request Button mounted");
         } else {
             document.getElementById('payment-request-button').style.display = 'none';
-            console.log("Payment Request Button not available");
         }
     });
 
+    // Capture address element input values
+    addressElement.on('change', (event) => {
+        if (event.complete) {
+            addressJSON = event.value;
+            console.log('Address Element input values:', event.value);
+        } else if (event.error) {
+            console.error('Address Element error:', event.error.message);
+        }
+        console.log('oject',addressJSON)
+    });
     // Handle form submission
     const form = document.getElementById('payment-form');
     form.addEventListener('submit', async (event) => {
         event.preventDefault();
 
+        // Capture address element input values
+        const addressElementData = addressElement.getValue();
+        console.log('Captured Address Element Data:', addressElementData);
+
+        // Set cookie with address data
+        document.cookie = `addressData=${encodeURIComponent(JSON.stringify(addressJSON))}; path=/`;;
+
         const { error } = await stripe.confirmPayment({
-            elements,
+            elements: stripeElements,
             confirmParams: {
                 return_url: 'http://localhost:3000/success',
             },
