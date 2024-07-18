@@ -5,6 +5,7 @@ const elements = stripe.elements();
 
 async function initializePaymentElement() {
     let addressJSON = {}
+    let paymentJSON = {}
     const { clientSecret } = await fetch('/create-payment-intent', {
         method: 'POST',
         headers: {
@@ -21,7 +22,7 @@ async function initializePaymentElement() {
     paymentElement.mount('#payment-element');
 
     // Create and mount the Address Element with mode set to 'shipping' or 'billing'
-    const addressElement = stripeElements.create('address', { mode: 'shipping' });
+    const addressElement = stripeElements.create('address', { mode: 'billing' });
     addressElement.mount('#address-element');
 
     // Create and mount the Payment Request Button
@@ -48,13 +49,21 @@ async function initializePaymentElement() {
 
     // Capture address element input values
     addressElement.on('change', (event) => {
+        console.log('addressElement',addressElement._componentMode)
         if (event.complete) {
             addressJSON = event.value;
-            console.log('Address Element input values:', event.value);
         } else if (event.error) {
             console.error('Address Element error:', event.error.message);
         }
-        console.log('oject',addressJSON)
+        console.log('objectAddress',addressJSON)
+    });
+    // Capture payment element input values
+    paymentElement.on('change', (event) => {
+        if (event.complete) {
+            paymentJSON = event.value;
+        } else if (event.error) {
+            console.error('Payment Element error:', event.error.message);
+        }
     });
     // Handle form submission
     const form = document.getElementById('payment-form');
@@ -63,10 +72,12 @@ async function initializePaymentElement() {
 
         // Capture address element input values
         const addressElementData = addressElement.getValue();
-        console.log('Captured Address Element Data:', addressElementData);
 
-        // Set cookie with address data
-        document.cookie = `addressData=${encodeURIComponent(JSON.stringify(addressJSON))}; path=/`;;
+        // Set cookie with address data & addressElement
+        document.cookie = `addressData=${encodeURIComponent(JSON.stringify({
+            ...addressJSON,
+            componentMode: addressElement._componentMode
+        }))}; path=/`;
 
         const { error } = await stripe.confirmPayment({
             elements: stripeElements,
