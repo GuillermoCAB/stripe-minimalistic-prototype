@@ -82,7 +82,7 @@ const form = document.getElementById('payment-form');
 ## Server-Side Handling
 
 ```
-onst express = require('express');
+const express = require('express');
 const dotenv = require('dotenv');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -105,7 +105,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-
 app.get('/success', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'success.html'));
 });
@@ -118,13 +117,57 @@ app.post('/create-payment-intent', async (req, res) => {
             amount,
             currency: 'usd',
             payment_method_types: ['card'],
+            metadata: {
+                // Add any metadata here if needed
+            }
         });
-        res.send({ clientSecret: paymentIntent.client_secret });
+
+        const creationTimestamp = new Date().toISOString();
+
+        res.send({
+            clientSecret: paymentIntent.client_secret,
+            creationTimestamp: creationTimestamp
+        });
     } catch (error) {
+        console.error('Error creating payment intent:', error);
+        res.status(500).send({ error: error.message });
+    }
+});
+
+app.post('/retrieve-payment-intent', async (req, res) => {
+    const { paymentIntentId } = req.body;
+
+    try {
+        const paymentIntent = await stripeInstance.paymentIntents.retrieve(paymentIntentId);
+        const creationTimestamp = new Date(paymentIntent.created * 1000).toISOString(); // Convert UNIX timestamp to ISO string
+
+        console.log(`Retrieved PaymentIntent with ID: ${paymentIntent.id} at ${creationTimestamp}`);
+
+        res.send({
+            ...paymentIntent,
+            creationTimestamp: creationTimestamp
+        });
+    } catch (error) {
+        console.error('Error retrieving payment intent:', error);
+        res.status(500).send({ error: error.message });
+    }
+});
+
+app.post('/retrieve-payment-method', async (req, res) => {
+    const { paymentMethodId } = req.body;
+
+    try {
+        console.log(`Retrieving payment method with ID: ${paymentMethodId}`);
+        const paymentMethod = await stripeInstance.paymentMethods.retrieve(paymentMethodId);
+        console.log('Retrieved payment method:', paymentMethod);
+        res.send(paymentMethod);
+    } catch (error) {
+        console.error('Error retrieving payment method:', error);
         res.status(500).send({ error: error.message });
     }
 });
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
+
 
 ```
