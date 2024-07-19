@@ -1,173 +1,225 @@
 ## Payment Element
+
 - The Payment Element allows you to collect payment details in a single, unified UI component. It supports multiple payment methods and dynamically adjusts to display only the methods you’ve configured in the Stripe Dashboard.
+
 ## Address Element
+
 - The Address Element can be used to collect address information from your customers, with built-in validation and formatting tailored to the customer’s region.
+
 ## Express Payment
+
 - Express Payment options like Apple Pay and Google Pay can be integrated to provide a faster checkout experience. These options leverage the Payment Request Button, a part of Stripe Elements, which offers a streamlined payment process.
 
-## Credentials Needed for Client-Side Integration
+## Credentials Needed for Client-Side Integration (What credentials do we need to support a client-side Stripe integration?)
+
 To integrate Stripe Elements on the client-side, you need the following credentials:
 
-- Publishable API Key: This key is used on the client side to initialize Stripe.js and create instances of Stripe Elements. It can be found in your Stripe Dashboard under the API keys section.
-- Secret API Key (server-side): While not directly used in the client-side integration, used to create PaymentIntents or SetupIntents, this way we can quickly test calls and what data is available to the application.
+### Publishable API Key:
 
-##  Capturing Data in the Forms
+This key is used on the client side to initialize Stripe.js and create instances of Stripe Elements. It can be found in your Stripe Dashboard under the API keys section.
 
-### 1 Initialize Stripe and Elements
-```
- // Load Stripe.js
- const stripe = Stripe('your-publishable-key');
-
- // Create an instance of Elements from Stripe
- const elements = stripe.elements();
-
- // Create a payment-intent 
- const { clientSecret } = await fetch('/create-payment-intent', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount: 2000 }), // Amount in cents ($20.00)
-    }).then(res => res.json());
-
- // Initialize elements with the client secret
- const stripeElements = stripe.elements({ clientSecret });
-```
-
-### 2 Create and Mount the Elements
-
-```
-// Create an instance of the Payment Element
- const paymentElement = elements.create('payment');
-
- // Mount the Payment Element to a DOM element
- paymentElement.mount('#payment-element');
-
- // Create and mount the Address Element with mode set to 'shipping' or 'billing'
- const addressElement = stripeElements.create('address', { mode: 'billing' });
- addressElement.mount('#address-element');
-```
-
-### Handle Form Submission & Cookie setup
-
-```
-const form = document.getElementById('payment-form');
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-
-        // Capture address element input values
-        const addressElementData = addressElement.getValue();
-
-        // Set cookie with address data & addressElement
-        document.cookie = `addressData=${encodeURIComponent(JSON.stringify({
-            ...addressJSON,
-            componentMode: addressElement._componentMode
-        }))}; path=/`;
-
-        const { error } = await stripe.confirmPayment({
-            elements: stripeElements,
-            confirmParams: {
-                return_url: 'http://localhost:3000/success',
-            },
-        });
-
-        if (error) {
-            document.getElementById('payment-status').innerText = error.message;
-        } else {
-            document.getElementById('payment-status').innerText = 'Payment successful!';
-        }
-    });
-```
-
-## Server-Side Handling
-
-```
-const express = require('express');
-const dotenv = require('dotenv');
-const bodyParser = require('body-parser');
-const path = require('path');
-const stripe = require('stripe');
-
-dotenv.config();
-
-const app = express();
-const port = process.env.PORT || 3000;
-const secretKey = process.env.NODE_APP_STRIPE_SECRET_KEY;
-const publishableKey = process.env.NODE_APP_STRIPE_PUBLISHABLE_KEY;
+```js
+const secretKey = process.env.NODE_APP_STRIPE_PUBLISHABLE_KEY;
 
 const stripeInstance = stripe(secretKey);
+```
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
+### \*Secret API Key (SERVER-SIDE):
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+While not directly used in the client-side integration, used to create PaymentIntents or SetupIntents, this way we can quickly test calls and what data is available to the application.
+
+```js
+const secretKey = process.env.NODE_APP_STRIPE_SECRET_KEY;
+
+const stripeInstance = stripe(secretKey);
+```
+
+## Capturing Data in the Forms Part 1 - (How do we capture the data in the forms? - Address Element)
+
+### 1 - Initialize Stripe and Elements
+
+Here we do a basic setup of the stripe app passing the PublishableKey to it and initializing the Elements.
+
+```js
+// Load Stripe.js
+const stripe = Stripe("your-publishable-key");
+
+// Create an instance of Elements from Stripe
+const elements = stripe.elements();
+
+// Create a payment-intent
+const { clientSecret } = await fetch("/create-payment-intent", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ amount: 2000 }), // Amount in cents ($20.00)
+}).then((res) => res.json());
+
+// Initialize elements with the client secret
+const stripeElements = stripe.elements({ clientSecret });
+```
+
+### 2 - Create and Mount the Elements
+
+Here we define which elements we want to use (payment, address, express) and mount them into an UI component.
+
+```js
+// Create an instance of the Payment Element
+const paymentElement = elements.create("payment");
+
+// Mount the Payment Element to a DOM element
+paymentElement.mount("#payment-element");
+
+// Create and mount the Address Element with mode set to 'shipping' or 'billing'
+const addressElement = stripeElements.create("address", { mode: "billing" });
+addressElement.mount("#address-element");
+```
+
+### 3 - Add listeners to capture the value of the elements
+
+This step is responsable for the actual capture of the values for the address form, added event listener to capture the value changes and store it in a variable for future use.
+
+```js
+// Capture address element input values
+addressElement.on("change", (event) => {
+  if (event.complete) {
+    addressJSON = event.value;
+  }
 });
+```
 
-app.get('/success', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'success.html'));
+### 4 - Handle Form Submission & Cookie setup
+
+Here we store the previous saved data into a cookie to use afterwards, we could store this data on the `onChange` event as well if needed, but on this example made sense for me to wait until the user added all data and click to submit the form before storing it. Also we can store the data into a variable in a redux, context, localStorage, some API, or wherever we see fit, this is just one example using the cookie but we can go with some other approach here as needed.
+
+```js
+const form = document.getElementById("payment-form");
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  // Set cookie with address data & addressElement
+  document.cookie = `addressData=${encodeURIComponent(
+    JSON.stringify({
+      ...addressJSON,
+      componentMode: addressElement._componentMode,
+    })
+  )}; path=/`;
+
+  //...rest of the payment handling logic
 });
+```
 
-app.post('/create-payment-intent', async (req, res) => {
-    const { amount } = req.body;
+### 5 - Using captured data
 
-    try {
-        const paymentIntent = await stripeInstance.paymentIntents.create({
-            amount,
-            currency: 'usd',
-            payment_method_types: ['card'],
-            metadata: {
-                // Add any metadata here if needed
-            }
+In this example we'll use parse the previous created cookie and use the data there to render information into the UI so we can showcase the flow of capturing data from Stripe Elements
+
+```js
+// Function to parse the cookie
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(";").shift();
+}
+
+// Function to format address data
+function formatAddress(address) {
+  if (!address) return "N/A";
+  return `
+            Name: ${address.name || "N/A"}<br>
+            Address Line 1: ${address.address.line1 || "N/A"}<br>
+            Address Line 2: ${address.address.line2 || "N/A"}<br>
+            City: ${address.address.city || "N/A"}<br>
+            State: ${address.address.state || "N/A"}<br>
+            Country: ${address.address.country || "N/A"}<br>
+            Postal Code: ${address.address.postal_code || "N/A"}
+        `;
+}
+
+const addressData = getCookie("addressData");
+const addressObject = JSON.parse(decodeURIComponent(addressData));
+document.getElementById("address-element-data").innerHTML =
+  formatAddress(addressObject);
+```
+
+## Capturing Data in the Forms Part 2 - (How do we capture the data in the forms? - Payment Element)
+
+For the payment element steps 1 and 2 are the same, we need to setup Stripe and then mount the Element we want to use into the UI, the difference is that after that we don't need to add any event listener because the data for the payment is private. So instead we just procced with the payment flow and after that's done we use the `retrievePaymentIntent`method from Stripe to retrieve the related data as shown here:
+
+```js
+// Function to format card details
+function formatCardDetails(card) {
+  if (!card) return "N/A";
+  return `
+            Brand: ${card.brand || "N/A"}<br>
+            Last 4 Card Number: ${card.last4 || "N/A"}<br>
+            Expiry Month: ${card.exp_month || "N/A"}<br>
+            Expiry Year: ${card.exp_year || "N/A"}<br>
+            Funding: ${card.funding || "N/A"}<br>
+            Country: ${card.country || "N/A"}
+        `;
+}
+
+// Retrieve the PaymentIntent
+stripe
+  .retrievePaymentIntent(paymentIntentClientSecret)
+  .then(({ paymentIntent }) => {
+    if (paymentIntent) {
+      document.getElementById(
+        "payment-intent-id"
+      ).innerText = `Payment Intent ID: ${paymentIntent.id}`;
+      document.getElementById(
+        "payment-intent-status"
+      ).innerText = `Status: ${paymentIntent.status}`;
+      document.getElementById("payment-intent-amount").innerText = `Amount: ${(
+        paymentIntent.amount / 100
+      ).toFixed(2)}`;
+      document.getElementById(
+        "payment-intent-currency"
+      ).innerText = `Currency: ${paymentIntent.currency.toUpperCase()}`;
+      document.getElementById(
+        "payment-intent-email"
+      ).innerText = `Customer Email: ${paymentIntent.receipt_email || "N/A"}`;
+
+      // Retrieve the PaymentMethod details from server
+      fetch("/retrieve-payment-method", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ paymentMethodId: paymentIntent.payment_method }),
+      })
+        .then((response) => response.json())
+        .then((paymentMethod) => {
+          console.log("Retrieved paymentMethod:", paymentMethod);
+
+          if (paymentMethod && paymentMethod.card) {
+            document.getElementById("card-details").innerHTML =
+              formatCardDetails(paymentMethod.card);
+          } else {
+            document.getElementById("card-details").innerText =
+              "No card details available!";
+          }
+
+          if (paymentMethod && paymentMethod.metadata) {
+            document.getElementById("client-attribution-metadata").innerHTML =
+              formatClientAttribution(paymentMethod.metadata);
+          } else {
+            document.getElementById("client-attribution-metadata").innerText =
+              "No client attribution metadata available!";
+          }
+        })
+        .catch((error) => {
+          console.error("Error retrieving PaymentMethod:", error);
+          document.getElementById("card-details").innerText =
+            "Error retrieving card details";
+          document.getElementById("client-attribution-metadata").innerText =
+            "Error retrieving client attribution metadata";
         });
-
-        const creationTimestamp = new Date().toISOString();
-
-        res.send({
-            clientSecret: paymentIntent.client_secret,
-            creationTimestamp: creationTimestamp
-        });
-    } catch (error) {
-        console.error('Error creating payment intent:', error);
-        res.status(500).send({ error: error.message });
+    } else {
+      document.getElementById("payment-intent-id").innerText =
+        "Payment Intent not found!";
     }
-});
-
-app.post('/retrieve-payment-intent', async (req, res) => {
-    const { paymentIntentId } = req.body;
-
-    try {
-        const paymentIntent = await stripeInstance.paymentIntents.retrieve(paymentIntentId);
-        const creationTimestamp = new Date(paymentIntent.created * 1000).toISOString(); // Convert UNIX timestamp to ISO string
-
-        console.log(`Retrieved PaymentIntent with ID: ${paymentIntent.id} at ${creationTimestamp}`);
-
-        res.send({
-            ...paymentIntent,
-            creationTimestamp: creationTimestamp
-        });
-    } catch (error) {
-        console.error('Error retrieving payment intent:', error);
-        res.status(500).send({ error: error.message });
-    }
-});
-
-app.post('/retrieve-payment-method', async (req, res) => {
-    const { paymentMethodId } = req.body;
-
-    try {
-        console.log(`Retrieving payment method with ID: ${paymentMethodId}`);
-        const paymentMethod = await stripeInstance.paymentMethods.retrieve(paymentMethodId);
-        console.log('Retrieved payment method:', paymentMethod);
-        res.send(paymentMethod);
-    } catch (error) {
-        console.error('Error retrieving payment method:', error);
-        res.status(500).send({ error: error.message });
-    }
-});
-
-app.listen(port, () => console.log(`Server running on port ${port}`));
-
-
+  });
 ```
