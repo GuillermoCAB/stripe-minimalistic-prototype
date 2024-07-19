@@ -248,3 +248,110 @@ stripe
 Today at `lovevery-checkout` we use a mix of some outdated stripe components like CardElement, PaymentRequestButtonElement and IdealBankElement, with our own logic and components. With the new approach we can just use the previously shown stripe elements and they will create all the flow with all the necessary elements, so instead of having a lot of files (e.g. PaymentInformation, PaymentMethodSelector, PaymentOptions, WalletPaymentRequest, CardElement, etc) we can just use the Stripe Payment Element and the Address Element, and all the necessary UI will already be done.
 
 On the data handling side, we may need to add some logic to our BE to handle the necessary stripe events based on the following [stripe doc](https://docs.stripe.com/checkout/custom-checkout) (maybe we already have that because we were already using stripe and the flow shouldn't change much with the new Elements), but this is really straightforward as far as I saw in this Spike and even if we need to update shouldn't be much work, definitely less than recreating all the components, forms, validations, etc as we did in the previous `lovevery-checkout`
+
+## Using with React
+
+On react we have dedicated libs that can provided the components and methods from stripe. The components are the same, and the set up process is similar, the only thing worth mention is that for the Address Element we have access to the `onChange` method, so we don't need the event listeners.
+
+```js
+import { useState, useEffect } from "react";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  LinkAuthenticationElement,
+  PaymentElement,
+  AddressElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+
+const PaymentForm = () => {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [messages, setMessages] = useState("");
+  const [addressState, setAddressState] = useState(null);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessages(`${messages}<br />Submitting payment...`);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: "http://localhost:3000/success",
+      },
+    });
+
+    if (error) {
+      setMessages(`${messages}<br />${error.message}`);
+    }
+  };
+
+  return (
+    <div className="sr-root">
+      <div className="sr-main">
+        <h1>Accept a payment</h1>
+
+        <form onSubmit={handleSubmit}>
+          <h3>Contact info</h3>
+          <LinkAuthenticationElement />
+
+          <h3>Shipping address</h3>
+          <AddressElement
+            options={{ mode: "shipping", allowedCountries: ["US"] }}
+            onChange={(event) => {
+              setAddressState(event.value);
+            }}
+          />
+
+          <h3>Payment</h3>
+          <PaymentElement />
+          <button type="submit">Pay</button>
+        </form>
+
+        <div id="messages">{messages}</div>
+      </div>
+    </div>
+  );
+};
+
+// Customize the appearance of Elements using the Appearance API.
+const appearance = {
+  theme: "stripe",
+  variables: {
+    colorPrimary: "#ed5f74",
+    borderRadius: "20px",
+    fontFamily:
+      "--body-font-family: -apple-system, BlinkMacSystemFont, sans-serif",
+    colorBackground: "#fafafa",
+  },
+};
+
+const Checkout = ({ stripePromise }) => {
+  const [clientSecret, setClientSecret] = useState(null);
+
+  useEffect(() => {
+    // Create PaymentIntent as soon as the page loads
+    fetch("/create-payment-intent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((res) => res.json())
+      .then(({ clientSecret }) => setClientSecret(clientSecret));
+  }, []);
+
+  if (clientSecret) {
+    return (
+      <Elements stripe={stripePromise} options={{ clientSecret, appearance }}>
+        <PaymentForm />
+      </Elements>
+    );
+  } else {
+    return <div>Loading...</div>;
+  }
+};
+
+export { Checkout };
+```
