@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Payment Success</title>
+    <script src="https://js.stripe.com/v3/"></script>
 </head>
 <body>
     <h1>Payment Successful</h1>
@@ -11,8 +12,16 @@
         <h3>Payment Details</h3>
         <p id="payment-intent-id"></p>
         <p id="payment-intent-status"></p>
+        <p id="payment-intent-amount"></p>
+        <p id="payment-intent-currency"></p>
+        <p id="payment-intent-email"></p>
+        <p id="payment-timestamp"></p>
         <h3>Address Details</h3>
         <p id="address-element-data"></p>
+        <h3>Card Details</h3>
+        <p id="card-details"></p>
+        <h3>Client Attribution Metadata</h3>
+        <p id="client-attribution-metadata"></p>
     </div>
     <script>
         // Function to get a cookie value
@@ -36,15 +45,55 @@
             `;
         }
 
+        // Function to format card details
+        function formatCardDetails(card) {
+            if (!card) return 'N/A';
+            return `
+                Brand: ${card.brand || 'N/A'}<br>
+                Last 4 Card Number: ${card.last4 || 'N/A'}<br>
+                Expiry Month: ${card.exp_month || 'N/A'}<br>
+                Expiry Year: ${card.exp_year || 'N/A'}<br>
+                Funding: ${card.funding || 'N/A'}<br>
+                Country: ${card.country || 'N/A'}
+            `;
+        }
+
+        // Function to format client attribution metadata
+        function formatClientAttribution(metadata) {
+            if (!metadata) return 'N/A';
+            return `
+                Merchant Integration Version: ${metadata.merchant_integration_version || 'N/A'}<br>
+                Client Session ID: ${metadata.client_session_id || 'N/A'}<br>
+                Merchant Integration Source: ${metadata.merchant_integration_source || 'N/A'}<br>
+                Merchant Integration Subtype: ${metadata.merchant_integration_subtype || 'N/A'}<br>
+                Payment Intent Creation Flow: ${metadata.payment_intent_creation_flow || 'N/A'}<br>
+                Payment Method Selection Flow: ${metadata.payment_method_selection_flow || 'N/A'}
+            `;
+        }
+
+        // Retrieve URL parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const paymentIntentId = urlParams.get('payment_intent');
         const paymentIntentClientSecret = urlParams.get('payment_intent_client_secret');
         const redirectStatus = urlParams.get('redirect_status');
         const addressData = getCookie('addressData');
+        const creationTimestamp = urlParams.get('creationTimestamp'); // Retrieve timestamp from URL
+        const stripePublishableKey = 'pk_test_51PdfJeCXxlVIqo4hm7ZyfaR4DOQpjvBKWonLDH4Uak5s0AcuMbk55p3wZjCaBOtdzaxJ9gBySx0m3ifVcQquDHIo00iXsWdZoG'; // Replace with your actual key
 
-        document.getElementById('payment-intent-id').innerText = `Payment Intent ID: ${paymentIntentId}`;
-        document.getElementById('payment-intent-status').innerText = `Status: ${redirectStatus}`;
-        
+        console.log('URL Params:', urlParams.toString());
+        console.log('Creation Timestamp:', creationTimestamp);
+
+        if (redirectStatus) {
+            document.getElementById('payment-intent-status').innerText = `Status: ${redirectStatus}`;
+        }
+
+        if (creationTimestamp) {
+            const date = new Date(creationTimestamp);
+            console.log('Parsed Date:', date);
+            document.getElementById('payment-timestamp').innerText = `Order Created At: ${date.toLocaleString()}`;
+        } else {
+            console.error('Creation Timestamp not found in URL');
+        }
+
         // Parse and format the address data
         try {
             const addressObject = JSON.parse(decodeURIComponent(addressData));
@@ -52,6 +101,55 @@
         } catch (e) {
             console.error('Failed to parse address data:', e);
             document.getElementById('address-element-data').innerText = 'Error parsing address data';
+        }
+
+        if (paymentIntentClientSecret) {
+            const stripe = Stripe(stripePublishableKey); // Initialize Stripe
+
+            // Retrieve the PaymentIntent
+            stripe.retrievePaymentIntent(paymentIntentClientSecret).then(({ paymentIntent }) => {
+                if (paymentIntent) {
+                    document.getElementById('payment-intent-id').innerText = `Payment Intent ID: ${paymentIntent.id}`;
+                    document.getElementById('payment-intent-status').innerText = `Status: ${paymentIntent.status}`;
+                    document.getElementById('payment-intent-amount').innerText = `Amount: ${(paymentIntent.amount / 100).toFixed(2)}`;
+                    document.getElementById('payment-intent-currency').innerText = `Currency: ${paymentIntent.currency.toUpperCase()}`;
+                    document.getElementById('payment-intent-email').innerText = `Customer Email: ${paymentIntent.receipt_email || 'N/A'}`;
+
+                    // Retrieve the PaymentMethod details from server
+                    fetch('/retrieve-payment-method', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ paymentMethodId: paymentIntent.payment_method })
+                    }).then(response => response.json()).then(paymentMethod => {
+                        console.log('Retrieved paymentMethod:', paymentMethod);
+
+                        if (paymentMethod && paymentMethod.card) {
+                            document.getElementById('card-details').innerHTML = formatCardDetails(paymentMethod.card);
+                        } else {
+                            document.getElementById('card-details').innerText = 'No card details available!';
+                        }
+
+                        if (paymentMethod && paymentMethod.metadata) {
+                            document.getElementById('client-attribution-metadata').innerHTML = formatClientAttribution(paymentMethod.metadata);
+                        } else {
+                            document.getElementById('client-attribution-metadata').innerText = 'No client attribution metadata available!';
+                        }
+                    }).catch((error) => {
+                        console.error('Error retrieving PaymentMethod:', error);
+                        document.getElementById('card-details').innerText = 'Error retrieving card details';
+                        document.getElementById('client-attribution-metadata').innerText = 'Error retrieving client attribution metadata';
+                    });
+                } else {
+                    document.getElementById('payment-intent-id').innerText = 'Payment Intent not found!';
+                }
+            }).catch((error) => {
+                console.error('Error retrieving PaymentIntent:', error);
+                document.getElementById('payment-intent-id').innerText = 'Error retrieving payment details';
+            });
+        } else {
+            document.getElementById('payment-intent-id').innerText = 'No payment information available!';
         }
     </script>
 </body>
