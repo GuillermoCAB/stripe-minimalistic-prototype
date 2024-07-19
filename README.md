@@ -1,3 +1,16 @@
+## INSTALL STEPS
+
+- Run `yarn` at the root to install the dependencies.
+- Copy content from `.env.example` to your own `.env` file
+- Run `yarn start` to run the app at http://localhost:3000  
+  <br />
+  <br />
+  <br />
+
+# SPIKE DOC
+
+<br />
+
 ## Payment Element
 
 - The Payment Element allows you to collect payment details in a single, unified UI component. It supports multiple payment methods and dynamically adjusts to display only the methods you’ve configured in the Stripe Dashboard.
@@ -9,6 +22,8 @@
 ## Express Payment
 
 - Express Payment options like Apple Pay and Google Pay can be integrated to provide a faster checkout experience. These options leverage the Payment Request Button, a part of Stripe Elements, which offers a streamlined payment process.
+
+<br />
 
 ## Credentials Needed for Client-Side Integration (What credentials do we need to support a client-side Stripe integration?)
 
@@ -24,7 +39,7 @@ const secretKey = process.env.NODE_APP_STRIPE_PUBLISHABLE_KEY;
 const stripeInstance = stripe(secretKey);
 ```
 
-### \*Secret API Key (SERVER-SIDE):
+### <i>\*Secret API Key (SERVER-SIDE):</i>
 
 While not directly used in the client-side integration, used to create PaymentIntents or SetupIntents, this way we can quickly test calls and what data is available to the application.
 
@@ -142,6 +157,8 @@ const addressObject = JSON.parse(decodeURIComponent(addressData));
 document.getElementById("address-element-data").innerHTML =
   formatAddress(addressObject);
 ```
+
+<br />
 
 ## Capturing Data in the Forms Part 2 - (How do we capture the data in the forms? - Payment Element)
 
