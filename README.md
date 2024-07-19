@@ -41,7 +41,7 @@ const stripeInstance = stripe(secretKey);
 
 ### <i>\*Secret API Key (SERVER-SIDE):</i>
 
-While not directly used in the client-side integration, used to create PaymentIntents or SetupIntents, this way we can quickly test calls and what data is available to the application.
+While not directly used in the client-side integration, it is used to create PaymentIntents or SetupIntents, this way we can quickly test calls and what data is available to the application.
 
 ```js
 const secretKey = process.env.NODE_APP_STRIPE_SECRET_KEY;
@@ -93,7 +93,7 @@ addressElement.mount("#address-element");
 
 ### 3 - Add listeners to capture the value of the elements
 
-This step is responsable for the actual capture of the values for the address form, added event listener to capture the value changes and store it in a variable for future use.
+This step is responsible for the actual capture of the values for the address form, added event listener to capture the value changes and stored it in a variable for future use.
 
 ```js
 // Capture address element input values
@@ -106,7 +106,7 @@ addressElement.on("change", (event) => {
 
 ### 4 - Handle Form Submission & Cookie setup
 
-Here we store the previous saved data into a cookie to use afterwards, we could store this data on the `onChange` event as well if needed, but on this example made sense for me to wait until the user added all data and click to submit the form before storing it. Also we can store the data into a variable in a redux, context, localStorage, some API, or wherever we see fit, this is just one example using the cookie but we can go with some other approach here as needed.
+Here we store the previously saved data into a cookie to use afterward, we could store this data on the `onChange` event as well if needed, but in this example, it made sense for me to wait until the user added all data and click to submit the form before storing it. Also, we can store the data into a variable in a redux, context, localStorage, some API, or wherever we see fit, this is just one example using the cookie but we can go with some other approach here as needed.
 
 ```js
 const form = document.getElementById("payment-form");
@@ -128,7 +128,7 @@ form.addEventListener("submit", async (event) => {
 
 ### 5 - Using captured data
 
-In this example we'll use parse the previous created cookie and use the data there to render information into the UI so we can showcase the flow of capturing data from Stripe Elements
+In this example, we'll parse the previously created cookie and use the data there to render information into the UI so we can showcase the flow of capturing data from Stripe Elements
 
 ```js
 // Function to parse the cookie
@@ -162,7 +162,7 @@ document.getElementById("address-element-data").innerHTML =
 
 ## Capturing Data in the Forms Part 2 - (How do we capture the data in the forms? - Payment Element)
 
-For the payment element steps 1 and 2 are the same, we need to setup Stripe and then mount the Element we want to use into the UI, the difference is that after that we don't need to add any event listener because the data for the payment is private. So instead we just procced with the payment flow and after that's done we use the `retrievePaymentIntent`method from Stripe to retrieve the related data as shown here:
+For the payment element steps 1 and 2 are the same, we need to set up Stripe and then mount the Element we want to use into the UI, the difference is that after that we don't need to add any event listener because the data for the payment is private. So instead we just proceed with the payment flow and after that was done we used the `retrievePaymentIntent`method from Stripe to retrieve the related data as shown here:
 
 ```js
 // Function to format card details
@@ -240,3 +240,11 @@ stripe
     }
   });
 ```
+
+<br />
+
+## How is this different from the current implementation of Address & Payment forms?
+
+Today at `lovevery-checkout` we use a mix of some outdated stripe components like CardElement, PaymentRequestButtonElement and IdealBankElement, with our own logic and components. With the new approach we can just use the previously shown stripe elements and they will create all the flow with all the necessary elements, so instead of having a lot of files (e.g. PaymentInformation, PaymentMethodSelector, PaymentOptions, WalletPaymentRequest, CardElement, etc) we can just use the Stripe Payment Element and the Address Element, and all the necessary UI will already be done.
+
+On the data handling side, we may need to add some logic to our BE to handle the necessary stripe events based on the following [stripe doc](https://docs.stripe.com/checkout/custom-checkout) (maybe we already have that because we were already using stripe and the flow shouldn't change much with the new Elements), but this is really straightforward as far as I saw in this Spike and even if we need to update shouldn't be much work, definitely less than recreating all the components, forms, validations, etc as we did in the previous `lovevery-checkout`
